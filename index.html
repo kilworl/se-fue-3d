@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SE FUE 3D — Cartagena</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root{
+    --bg:#070b14; --panel:#0f1a2c; --text:#eef3f8; --dim:#8a9bb4;
+    --water:#34c9ff; --power:#ffb020; --ok:#3a4b66;
+    --font-display:'Big Shoulders Display',system-ui,sans-serif;
+    --font-body:'Archivo',system-ui,-apple-system,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);}
+
+  #app{display:flex;flex-direction:column;height:100%;}
+  header{
+    display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;
+    padding:14px 18px;border-bottom:1px solid #1e2f47;background:#0a1220;
+  }
+  .brand{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .brand .eyebrow{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--water);}
+  .brand h1{font-family:var(--font-display);font-weight:800;font-size:22px;margin:0;letter-spacing:.01em;}
+  .brand p{margin:2px 0 0;color:var(--dim);font-size:11.5px;max-width:52ch;}
+
+  .stats{display:flex;gap:8px;flex-wrap:wrap;}
+  .stat{background:var(--panel);border:1px solid #1e2f47;border-radius:10px;padding:6px 12px;min-width:84px;}
+  .stat .n{font-family:var(--font-display);font-weight:800;font-size:22px;line-height:1;font-variant-numeric:tabular-nums;}
+  .stat .l{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);display:block;}
+  .stat.water .n{color:var(--water);} .stat.power .n{color:var(--power);}
+  .stat.both .n{color:#ff6a7a;} .stat.ok .n{color:#2bd89a;}
+
+  .search{position:relative;}
+  .search input{
+    font-family:var(--font-body);font-size:13px;background:#0c1626;border:1px solid #23354e;
+    color:var(--text);border-radius:8px;padding:8px 10px;width:220px;outline:none;
+  }
+  .search input:focus{border-color:var(--water);}
+
+  main{position:relative;flex:1 1 auto;min-height:0;}
+  #map{position:absolute;inset:0;}
+
+  .legend{
+    position:absolute;left:12px;bottom:14px;z-index:5;display:flex;gap:10px;flex-wrap:wrap;max-width:60vw;
+    background:rgba(7,11,20,.75);backdrop-filter:blur(6px);border:1px solid #1e2f47;
+    border-radius:10px;padding:8px 10px;font-family:var(--font-mono);font-size:10px;color:var(--dim);
+  }
+  .legend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
+  .legend i{width:8px;height:8px;border-radius:2px;display:inline-block;}
+
+  .camera-toggle{
+    position:absolute;right:12px;top:12px;z-index:5;display:flex;background:rgba(7,11,20,.8);
+    border:1px solid #1e2f47;border-radius:999px;padding:3px;
+  }
+  .camera-toggle button{
+    font-family:var(--font-mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+    border:none;background:transparent;color:var(--dim);padding:7px 12px;border-radius:999px;cursor:pointer;
+  }
+  .camera-toggle button.active{background:linear-gradient(135deg,var(--water),#1c7fb0);color:#04121e;font-weight:600;}
+
+  .panel{
+    position:absolute;right:12px;bottom:14px;z-index:5;width:280px;max-width:calc(100vw - 24px);
+    background:rgba(10,16,28,.92);backdrop-filter:blur(8px);border:1px solid #1e2f47;border-radius:14px;
+    padding:14px;font-size:13px;
+  }
+  .panel h2{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:0 0 6px;}
+  .panel .name{font-family:var(--font-display);font-weight:700;font-size:19px;line-height:1.05;margin:0 0 6px;}
+  .panel .status-row{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:12px;margin-bottom:6px;}
+  .panel .status-row i{width:9px;height:9px;border-radius:3px;display:inline-block;}
+  .panel .detail{color:var(--dim);font-size:12.5px;line-height:1.5;margin:4px 0 0;}
+  .panel .hint{color:var(--dim);font-size:12.5px;line-height:1.5;margin:0;}
+
+  footer{
+    padding:8px 18px;border-top:1px solid #1e2f47;background:#0a1220;color:var(--dim);
+    font-size:10.5px;line-height:1.5;
+  }
+  footer b{color:var(--text);}
+  .maplibregl-popup-content{background:#0f1a2c;color:var(--text);font-family:var(--font-body);}
+
+  @media (max-width:720px){
+    .panel{left:12px;width:auto;}
+    .brand p{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <span class="eyebrow">Se Fue · Cartagena · datos reales</span>
+      <h1>Mapa 3D de cortes</h1>
+      <p>Geometr&iacute;a oficial de barrios (catastro AMB / OpenStreetMap) extruida seg&uacute;n el estado real de agua y luz.</p>
+    </div>
+    <div class="stats">
+      <div class="stat water"><span class="n" id="statAgua">–</span><span class="l">Sin agua</span></div>
+      <div class="stat power"><span class="n" id="statLuz">–</span><span class="l">Sin luz</span></div>
+      <div class="stat both"><span class="n" id="statAmbos">–</span><span class="l">Ambos</span></div>
+      <div class="stat ok"><span class="n" id="statOk">–</span><span class="l">Normal</span></div>
+    </div>
+    <div class="search">
+      <input id="searchBox" type="text" list="barrioList" placeholder="¿En qué barrio estás?">
+      <datalist id="barrioList"></datalist>
+    </div>
+  </header>
+
+  <main>
+    <div id="map"></div>
+    <div class="camera-toggle">
+      <button id="btn2d">2D</button>
+      <button id="btn3d" class="active">3D</button>
+    </div>
+    <div class="legend">
+      <span><i style="background:#34c9ff"></i>Agua</span>
+      <span><i style="background:#ffb020"></i>Luz</span>
+      <span><i style="background:#ff6a7a"></i>Ambos</span>
+      <span><i style="background:#3a4b66"></i>Normal</span>
+    </div>
+    <aside class="panel" id="panel">
+      <h2>Estado del barrio</h2>
+      <p class="hint">Toca un edificio extruido en el mapa para ver su estado real.</p>
+    </aside>
+  </main>
+
+  <footer id="footerNote">Cargando datos…</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STATUS_COLOR = {agua:'#34c9ff', luz:'#ffb020', ambos:'#ff6a7a', ok:'#3a4b66'};
+  var STATUS_LABEL = {agua:'Sin agua', luz:'Sin luz', ambos:'Sin agua y luz', ok:'Servicio normal'};
+
+  window.__debugMap = null;
+  var map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+    center: [-75.512, 10.407],
+    zoom: 12.4,
+    pitch: 55,
+    bearing: -17,
+    antialias: true
+  });
+  map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
+  window.__debugMap = map;
+
+  var is3D = true;
+  document.getElementById('btn2d').addEventListener('click', function(){
+    is3D = false; updateCameraButtons();
+    map.easeTo({pitch:0, bearing:0, duration:900});
+  });
+  document.getElementById('btn3d').addEventListener('click', function(){
+    is3D = true; updateCameraButtons();
+    map.easeTo({pitch:55, bearing:-17, duration:900});
+  });
+  function updateCameraButtons(){
+    document.getElementById('btn2d').classList.toggle('active', !is3D);
+    document.getElementById('btn3d').classList.toggle('active', is3D);
+  }
+
+  var panel = document.getElementById('panel');
+  function renderPanel(props){
+    if(!props){
+      panel.innerHTML = '<h2>Estado del barrio</h2><p class="hint">Toca un edificio extruido en el mapa para ver su estado real.</p>';
+      return;
+    }
+    var col = STATUS_COLOR[props.status];
+    var since = props.since ? new Date(props.since).toLocaleString('es-CO', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : null;
+    panel.innerHTML =
+      '<h2>Estado del barrio</h2>' +
+      '<p class="name">'+props.name+'</p>' +
+      '<div class="status-row"><i style="background:'+col+'"></i>'+STATUS_LABEL[props.status]+'</div>' +
+      (props.zone ? '<p class="detail">'+props.zone+'</p>' : '') +
+      (since ? '<p class="detail">Reporte activo desde '+since+'</p>' : '') +
+      (props.reason ? '<p class="detail">'+props.reason+'</p>' : '');
+  }
+
+  map.on('style.load', function(){
+    if(typeof map.setSky === 'function'){
+      try{ map.setSky({ 'sky-color':'#0c1830', 'horizon-color':'#264a6e', 'fog-color':'#0c1830' }); }catch(e){}
+    }
+
+    fetch('barrios.merged.json').then(function(r){ return r.json(); }).then(function(doc){
+      var fc = doc.featureCollection;
+
+      map.addSource('barrios', { type:'geojson', data: fc });
+
+      // barely-there tint on normal barrios: a flat fill blends cleanly with the real
+      // basemap underneath, unlike an extrusion (which is literal 3D geometry and would
+      // occlude it regardless of alpha)
+      map.addLayer({
+        id: 'barrios-ok-fill',
+        type: 'fill',
+        source: 'barrios',
+        filter: ['==', ['get','status'], 'ok'],
+        paint: { 'fill-color': '#334258', 'fill-opacity': 0.05 }
+      });
+
+      // only the barrios actually cut right now get a glowing 3D block
+      map.addLayer({
+        id: 'barrios-extrusion',
+        type: 'fill-extrusion',
+        source: 'barrios',
+        filter: ['!=', ['get','status'], 'ok'],
+        paint: {
+          'fill-extrusion-color': ['match', ['get','status'],
+            'agua', '#34c9ff', 'luz', '#ffb020', /*ambos*/ '#ff6a7a'],
+          'fill-extrusion-height': ['match', ['get','status'],
+            'agua', 55, 'luz', 55, /*ambos*/ 85],
+          'fill-extrusion-base': 0,
+          'fill-extrusion-opacity': 0.92
+        }
+      });
+
+      map.addLayer({
+        id: 'barrios-labels',
+        type: 'symbol',
+        source: 'barrios',
+        filter: ['!=', ['get','status'], 'ok'],
+        layout: {
+          'text-field': ['get','name'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 11,
+          'text-anchor': 'bottom',
+          'text-offset': [0, -0.2],
+          'text-allow-overlap': false
+        },
+        paint: {
+          'text-color': '#eef3f8',
+          'text-halo-color': '#05080f',
+          'text-halo-width': 1.4
+        }
+      });
+
+      // stats (computed once from the snapshot, mirrors the real site's counters)
+      var c = doc.counts;
+      document.getElementById('statAgua').textContent = c.agua + c.ambos;
+      document.getElementById('statLuz').textContent = c.luz + c.ambos;
+      document.getElementById('statAmbos').textContent = c.ambos;
+      document.getElementById('statOk').textContent = c.ok;
+
+      var updated = new Date(doc.sourceUpdatedAt).toLocaleString('es-CO', {dateStyle:'medium', timeStyle:'short'});
+      document.getElementById('footerNote').innerHTML =
+        '<b>Datos:</b> instantánea tomada el '+updated+' desde la API pública de se-fue.vercel.app ('+doc.sources.join(', ')+'). '+
+        'Geometría: catastro oficial AMB / OpenStreetMap (© OSM contributors, ODbL). No se actualiza en vivo en esta demo — '+doc.disclaimer;
+
+      // search
+      var datalist = document.getElementById('barrioList');
+      var byName = {};
+      fc.features.forEach(function(f){
+        var opt = document.createElement('option');
+        opt.value = f.properties.name;
+        datalist.appendChild(opt);
+        byName[f.properties.name] = f;
+      });
+      document.getElementById('searchBox').addEventListener('change', function(e){
+        var f = byName[e.target.value];
+        if(!f) return;
+        map.flyTo({ center:[f.properties.lng, f.properties.lat], zoom:15.2, pitch:60, duration:1200 });
+        renderPanel(f.properties);
+      });
+
+      map.on('click', 'barrios-extrusion', function(e){
+        if(!e.features.length) return;
+        renderPanel(e.features[0].properties);
+      });
+      map.on('mouseenter', 'barrios-extrusion', function(){ map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'barrios-extrusion', function(){ map.getCanvas().style.cursor = ''; });
+    }).catch(function(err){
+      document.getElementById('footerNote').textContent = 'No se pudieron cargar los datos: ' + err.message;
+    });
+  });
+})();
+</script>
+</body>
+</html>
